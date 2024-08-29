@@ -1,0 +1,128 @@
+Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''FLOOD'''
+Pdf.ExtractTextFromPDF.ExtractText PDFFile: QPP_Path DetectLayout: False ExtractedText=> ExtractedPDFText
+Text.SplitText.SplitWithDelimiter Text: ExtractedPDFText CustomDelimiter: $'''FLOOD PROPOSED COVERAGE''' IsRegEx: False Result=> Flood_Coverage_list
+Text.SplitText.SplitWithDelimiter Text: Flood_Coverage_list[1] CustomDelimiter: $'''Total Flood Premium''' IsRegEx: False Result=> Total_Flood_list
+Text.ParseText.RegexParse Text: Total_Flood_list[0] TextToFind: $'''(?<=Page).*(?=of)''' StartingPosition: 0 IgnoreCase: False OccurrencePositions=> Positions Matches=> Page_no_Matches
+SET First_Page TO Page_no_Matches[0]
+SET Last_Page TO Page_no_Matches[Page_no_Matches.Count - 1]
+SET Excel_Colm TO 1
+LOOP FOREACH Page_no_Flood IN Page_no_Matches
+    Text.ToNumber Text: Page_no_Flood Number=> Page_no_Flood
+    Pdf.ExtractTablesFromPDF.ExtractTablesFromPage PDFFile: QPP_Path PageNumber: Page_no_Flood MultiPageTables: True SetFirstRowAsHeader: False ExtractedPDFTables=> ExtractedPDFTables2
+    # Flood_Limit_Of_Insurance , Flood Annual Aggregate
+    Pdf.ExtractTextFromPDF.ExtractTextFromPage PDFFile: QPP_Path PageNumber: Page_no_Flood DetectLayout: False ExtractedText=> SinglePagePDFText
+    IF Contains(First_Page, Page_no_Flood, False) THEN
+        Text.Replace Text: SinglePagePDFText TextToFind: $'''“Occurrence”''' IsRegEx: False IgnoreCase: False ReplaceWith: $'''Occurrence''' ActivateEscapeSequences: False Result=> SinglePagePDFText
+        Text.ParseText.RegexParseForFirstOccurrence Text: SinglePagePDFText TextToFind: $'''(?<=Maximum Per Occurrence Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Limit_of_Insurance
+        Text.ParseText.RegexParseForFirstOccurrence Text: SinglePagePDFText TextToFind: $'''(?<=Maximum Annual Aggregate Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Annual_Aggregate
+        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Maximum Per Occurrence Limit Of Insurance''' Column: 1 Row: 1
+        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Maximum Annual Aggregate Limit Of Insurance''' Column: 1 Row: 2
+        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Limit_of_Insurance Column: 2 Row: 1
+        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Annual_Aggregate Column: 2 Row: 2
+        SET Is_It_First_Page TO $'''True'''
+        SET Excel_Colm TO Excel_Colm + 4
+    END
+    Text.Replace Text: SinglePagePDFText TextToFind: $'''“Occurrence”''' IsRegEx: False IgnoreCase: False ReplaceWith: $'''Occurrence''' ActivateEscapeSequences: False Result=> SinglePagePDFText
+    Text.SplitText.SplitWithDelimiter Text: SinglePagePDFText CustomDelimiter: $'''The following Limits and Deductibles apply:''' IsRegEx: False Result=> Text_Table_List
+    SET Table_index TO 0
+    # Flood Table Extraction
+    LOOP FOREACH CurrentItext_Table IN Text_Table_List
+        Text.ParseText.RegexParse Text: CurrentItext_Table TextToFind: $'''\\d{3} \\d{3}''' StartingPosition: 0 IgnoreCase: False OccurrencePositions=> Positions2 Matches=> Location_Building_list
+        IF Contains(CurrentItext_Table, $'''Blanket Limit applies solely for Flood at the following locations:''', False) THEN
+            IF Is_It_First_Page = $'''False''' THEN
+                SET Excel_Colm TO Excel_Colm + 7
+            END
+            SET Is_It_First_Page TO $'''False'''
+            Text.SplitText.SplitWithDelimiter Text: CurrentItext_Table CustomDelimiter: $'''Blanket Limit applies solely for Flood at the following locations:''' IsRegEx: False Result=> First_Three_lines_of_Table
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Per Occurrence - Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Limit_of_Insurance1
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Annual Aggregate - Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Annual_Aggregate1
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Premium).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Premium1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''BLANKET FLOOD''' Column: Excel_Colm Row: 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Per “Occurrence” - Limit Of Insurance''' Column: Excel_Colm Row: 2
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Annual Aggregate - Limit Of Insurance''' Column: Excel_Colm Row: 3
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Premium''' Column: Excel_Colm Row: 4
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Limit_of_Insurance1 Column: Excel_Colm + 1 Row: 2
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Annual_Aggregate1 Column: Excel_Colm + 1 Row: 3
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Premium1 Column: Excel_Colm + 1 Row: 4
+            SET Row_LoopIndex TO 4
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Location No.''' Column: Excel_Colm Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building No.''' Column: Excel_Colm + 1 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building Address''' Column: Excel_Colm + 2 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building Deductible''' Column: Excel_Colm + 3 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Personal Property Deductible''' Column: Excel_Colm + 4 Row: Row_LoopIndex + 1
+            SET Row_LoopInex_Table TO 6
+            # Flood Scheduled Part
+        ELSE IF Contains(CurrentItext_Table, $'''Scheduled coverage applies solely for Flood at the following locations:''', False) THEN
+            Text.SplitText.SplitWithDelimiter Text: CurrentItext_Table CustomDelimiter: $'''Scheduled coverage applies solely for Flood at the following locations:''' IsRegEx: False Result=> First_Three_lines_of_Table
+            IF Is_It_First_Page = $'''False''' THEN
+                SET Excel_Colm TO Excel_Colm + 7
+            END
+            SET Is_It_First_Page TO $'''False'''
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Per Occurrence - Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Limit_of_Insurance1
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Annual Aggregate - Limit Of Insurance).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Annual_Aggregate1
+            Text.ParseText.RegexParseForFirstOccurrence Text: First_Three_lines_of_Table[0] TextToFind: $'''(?<=Premium).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Flood_Premium1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''SCHEDULED FLOOD''' Column: Excel_Colm Row: 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Per “Occurrence” - Limit Of Insurance''' Column: Excel_Colm Row: 2
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Annual Aggregate - Limit Of Insurance''' Column: Excel_Colm Row: 3
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Premium''' Column: Excel_Colm Row: 4
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Limit_of_Insurance1 Column: Excel_Colm + 1 Row: 2
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Annual_Aggregate1 Column: Excel_Colm + 1 Row: 3
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Flood_Premium1 Column: Excel_Colm + 1 Row: 4
+            SET Row_LoopIndex TO 4
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Location No.''' Column: Excel_Colm Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building No.''' Column: Excel_Colm + 1 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building Address''' Column: Excel_Colm + 2 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Building Deductible''' Column: Excel_Colm + 3 Row: Row_LoopIndex + 1
+            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Personal Property Deductible''' Column: Excel_Colm + 4 Row: Row_LoopIndex + 1
+            SET Row_LoopInex_Table TO 6
+        END
+        IF IsNotEmpty(Location_Building_list) THEN
+            IF ExtractedPDFTables2[Table_index].DataTable.Columns.Count < 3 THEN
+                Variables.IncreaseVariable Value: Table_index IncrementValue: 1
+            END
+            IF ExtractedPDFTables2[Table_index].DataTable.Columns.Count > 3 THEN
+                SET Current_ExtractedPDFTables2_Column_Count TO ExtractedPDFTables2[Table_index].DataTable.Columns.Count
+                SET Location_List_Counter TO 0
+                LOOP Row_LoopIndex FROM 0 TO ExtractedPDFTables2[Table_index].DataTable.RowsCount - 1 STEP 1
+                    SET Current_Building_Address TO $'''%''%'''
+                    SET Table_Location_Building_No TO $'''%ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][0]% %ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][1]%'''
+                    IF Contains(Table_Location_Building_No, Location_Building_list[Location_List_Counter], False) THEN
+                        LOOP Colm_LoopIndex FROM 2 TO Current_ExtractedPDFTables2_Column_Count - 2 STEP 1
+                            IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Colm_LoopIndex], $'''$''', False) THEN
+                                NEXT LOOP
+                            ELSE IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Colm_LoopIndex], $'''%%''', False) THEN
+                                NEXT LOOP
+                            ELSE
+                                Text.Trim Text: Current_Building_Address TrimOption: Text.TrimOption.Both TrimmedText=> Current_Building_Address
+                                SET Current_Building_Address TO $'''%Current_Building_Address% %ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Colm_LoopIndex]%'''
+                            END
+                        END
+                        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][0] Column: Excel_Colm Row: Row_LoopInex_Table
+                        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][1] Column: Excel_Colm + 1 Row: Row_LoopInex_Table
+                        Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Current_Building_Address Column: Excel_Colm + 2 Row: Row_LoopInex_Table
+                        IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 2], $'''$''', False) THEN
+                            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 2] Column: Excel_Colm + 3 Row: Row_LoopInex_Table
+                        ELSE IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 2], $'''%%''', False) THEN
+                            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 2] Column: Excel_Colm + 3 Row: Row_LoopInex_Table
+                        END
+                        IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 1], $'''$''', False) THEN
+                            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 1] Column: Excel_Colm + 4 Row: Row_LoopInex_Table
+                        ELSE IF Contains(ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 1], $'''%%''', False) THEN
+                            Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExtractedPDFTables2[Table_index].DataTable[Row_LoopIndex][Current_ExtractedPDFTables2_Column_Count - 1] Column: Excel_Colm + 4 Row: Row_LoopInex_Table
+                        END
+                        Variables.IncreaseVariable Value: Row_LoopInex_Table IncrementValue: 1
+                        Variables.IncreaseVariable Value: Location_List_Counter IncrementValue: 1
+                    END
+                END
+            END
+            Variables.IncreaseVariable Value: Table_index IncrementValue: 1
+        END
+    END
+END
+SET Excel_Colm TO Excel_Colm + 7
+Text.ParseText.RegexParseForFirstOccurrence Text: SinglePagePDFText TextToFind: $'''(?<=Additional Premium to Meet Minimum Premium).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Additional_Premium_to_Meet_Minimum_Premium
+Text.ParseText.RegexParseForFirstOccurrence Text: SinglePagePDFText TextToFind: $'''(?<=Total Flood Premium).*[^\\n]''' StartingPosition: 0 IgnoreCase: False OccurrencePosition=> Position Match=> Total_Flood_Premium
+Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Additional Premium to Meet Minimum Premium''' Column: Excel_Colm Row: 1
+Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''Total Flood Premium''' Column: Excel_Colm Row: 2
+Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Additional_Premium_to_Meet_Minimum_Premium Column: Excel_Colm + 1 Row: 1
+Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: Total_Flood_Premium Column: Excel_Colm + 1 Row: 2

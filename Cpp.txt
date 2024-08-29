@@ -1,0 +1,24 @@
+Policy Symbol	N/A	ZBP
+Policy Number	N/A	1111207
+Policy Mod	N/A	00
+Relatable Employees	N/A	N/A
+ERISA Plan Name   	N/A	N/A
+ERISA Total Asset Value	N/A	N/A
+401-0151 - Common Dec	00/00	X------Locations, Form for all coverage
+401-0151C - Common Dec-Citizens	00/00	N/A
+411-0542 – Property Dec	00/00	X----Forms of propety coverage, coverages
+411-0542C – Property Dec-Citizens	00/00	N/A
+411-0771 – Broad Form Water Dec	02/13	N/A--
+411-0773 – Earth Movement Dec	02/13	X
+411-0775 – Flood Dec	02/13	X
+411-0777 – EQSL Dec	02/13	N/A
+421-0340 – GL Dec	12/14	X------ Forms of general laibility
+421-0340C – GL Dec -Citizens	12/14	N/A
+421-0341 – GL Schedule Dec	00/00	X-------General liability
+421-0341C– GL Schedule Dec- Citizens	00/00	N/A
+850-0002 – Cyber Dec	01/15	N/A
+441-0205 – Inland Marine Dec	00/00	X
+441-0205C – Inland Marine Dec-Citizens	00/00	N/A
+431-0026 – Crime Dec	00/00	X
+431-0026C – Crime Dec - Citizens	00/00	X
+ 
